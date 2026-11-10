@@ -83,7 +83,7 @@
       } else lines.push({ x: it.x, y: it.y, w: it.w, size: it.size, text: it.str, runs: [{ t: it.str, b: it.bold, i: it.italic, sz: it.size, fam: it.fam }], cells: [{ x: it.x, t: it.str }] });
     }
     lines.sort((p, q) => p.y - q.y || p.x - q.x);
-    const MARK = /^\s*([-–—•◦▪●*·]|\(?\d{1,3}[.)]|\(?[a-zA-Z][.)])\s+/;
+    const MARK = /^\s*([-–—•◦▪●*·➢►▸✓]|\(?\d{1,3}(?:\.\d{1,3})*[.)]|\(?(?:[ivxlcdm]{1,7}|[IVXLCDM]{1,7})[.)]|\(?[a-zA-Z][.)])\s+/;
     const paras = [];
     for (const l of lines) {
       const m = MARK.exec(l.text); if (m) l.marker = m[1];

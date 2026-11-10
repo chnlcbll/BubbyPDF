@@ -252,7 +252,7 @@
     out.push(bytes.subarray(pos));
     const len = out.reduce((t, c) => t + c.length, 0); const nb = new Uint8Array(len); let q = 0;
     for (const c of out) { nb.set(c, q); q += c.length; }
-    page.node.set(N('Contents'), ctx.register(ctx.flateStream(nb)));
+    page.node.set(N('Contents'), ctx.obj([ctx.register(ctx.flateStream(nb))]));
     // pdf-lib keeps its own handle on the page's content stream; it is gone now, so make it start a new one.
     page.contentStream = undefined; page.contentStreamRef = undefined;
     // Delete the old streams unless another page still uses them, so the removed text is really gone.
@@ -266,6 +266,67 @@
     return { removed, unsupported, caps, scan };
   }
 
+
+  // ---------- making room: everything below a line moves down ----------
+  // The page is drawn twice: once cut off below `cut`, once moved down by `dy` and cut off above it.
+  // Text is split between the two copies (not only clipped), so search, copy and later edits see every
+  // line exactly once. Lines, tables, pictures and form fields below the cut move with the text.
+  function pageBytes(page) {
+    const P = L(); const ctx = page.doc.context;
+    const raw = page.node.get(P.PDFName.of('Contents'));
+    if (!raw) return new Uint8Array(0);
+    const list = raw instanceof P.PDFArray ? raw.asArray() : [raw];
+    const chunks = [];
+    for (const r of list) { const st = ctx.lookup(r); if (st) chunks.push(streamBytes(st), Uint8Array.of(10)); }
+    const out = new Uint8Array(chunks.reduce((t, c) => t + c.length, 0)); let o = 0;
+    for (const c of chunks) { out.set(c, o); o += c.length; }
+    return out;
+  }
+  function setPageBytes(page, b) {
+    const P = L(); const ctx = page.doc.context;
+    page.node.set(P.PDFName.of('Contents'), ctx.obj([ctx.register(ctx.flateStream(b))]));
+    page.contentStream = undefined; page.contentStreamRef = undefined;
+  }
+  async function shiftBelow(doc, page, cut, dy) {
+    if (!(dy > 0.01)) return { lost: 0 };
+    const P = L(); const ctx = doc.context; const BIG = 1e7;
+    const mb = page.getMediaBox(); const x0 = mb.x, y0 = mb.y, W = mb.width, top = mb.y + mb.height;
+    const orig = pageBytes(page);
+    // text that would end up below the bottom of the page
+    setPageBytes(page, orig);
+    const { scan = [] } = await removeText(doc, page, [{ x1: -BIG, x2: BIG, y1: y0 - BIG, y2: cut }], { dryRun: true });
+    const lost = scan.filter((s) => s.y - dy < y0 + 2).length;
+    setPageBytes(page, orig); await removeText(doc, page, [{ x1: -BIG, x2: BIG, y1: y0 - BIG, y2: cut }]);
+    const above = pageBytes(page);
+    setPageBytes(page, orig); await removeText(doc, page, [{ x1: -BIG, x2: BIG, y1: cut, y2: top + BIG }]);
+    const below = pageBytes(page);
+    const res = page.node.Resources();
+    const form = (b) => ctx.register(ctx.flateStream(b, { Type: 'XObject', Subtype: 'Form', BBox: [x0, y0, x0 + W, top], Resources: res }));
+    const nA = page.node.newXObject('BbAbove', form(above));
+    const nB = page.node.newXObject('BbBelow', form(below));
+    let ops = `q ${fmt(x0)} ${fmt(cut)} ${fmt(W)} ${fmt(top - cut)} re W n /${nA.asString().slice(1)} Do Q\n`;
+    if (cut - dy > y0) ops += `q ${fmt(x0)} ${fmt(y0)} ${fmt(W)} ${fmt(cut - dy - y0)} re W n 1 0 0 1 0 ${fmt(-dy)} cm /${nB.asString().slice(1)} Do Q\n`;
+    setPageBytes(page, new TextEncoder().encode(ops));
+    // links, form fields and markups below the cut move too
+    const annots = page.node.Annots();
+    if (annots) {
+      for (let i = 0; i < annots.size(); i++) {
+        const d = annots.lookup(i); if (!(d instanceof P.PDFDict)) continue;
+        const rect = d.lookup(P.PDFName.of('Rect')); if (!(rect instanceof P.PDFArray) || rect.size() < 4) continue;
+        const r = rect.asArray().map((v) => (v.asNumber ? v.asNumber() : 0));
+        if (Math.max(r[1], r[3]) > cut + 1) continue;
+        const move = (key, odd) => {
+          const arr = d.lookup(P.PDFName.of(key)); if (!(arr instanceof P.PDFArray)) return null;
+          const vals = arr.asArray();
+          if (vals.length && vals[0] instanceof P.PDFArray) return ctx.obj(vals.map((sub) => sub.asArray().map((v, k) => (k % 2 === odd ? v.asNumber() - dy : v.asNumber()))));
+          return ctx.obj(vals.map((v, k) => (k % 2 === odd ? v.asNumber() - dy : v.asNumber())));
+        };
+        d.set(P.PDFName.of('Rect'), ctx.obj([r[0], r[1] - dy, r[2], r[3] - dy]));
+        for (const key of ['QuadPoints', 'InkList', 'Vertices', 'L', 'CL']) { const m = move(key, 1); if (m) d.set(P.PDFName.of(key), m); }
+      }
+    }
+    return { lost };
+  }
 
   // ---------- writing new text in the page's own font ----------
   const AGL = {
@@ -364,5 +425,5 @@
     page.node.addContentStream(doc.context.register(doc.context.flateStream('q\n' + ops + '\nQ')));
   }
 
-  window.BubbyTextEdit = { removeText, stdFont, stdFontSync, stdName, loadAllStd, tokenize, fontEncoder, encodeRun, runWidth, appendContent, wrap, parseCMap, fmt };
+  window.BubbyTextEdit = { removeText, shiftBelow, stdFont, stdFontSync, stdName, loadAllStd, tokenize, fontEncoder, encodeRun, runWidth, appendContent, wrap, parseCMap, fmt };
 })();

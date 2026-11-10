@@ -215,8 +215,8 @@
   function hit(p, u, v) {
     const tol = 4 / S.zoom;
     for (let i = p.annots.length - 1; i >= 0; i--) {
-      const b = bounds(p.annots[i]);
-      if (u >= b.x - tol && u <= b.x + b.w + tol && v >= b.y - tol && v <= b.y + b.h + tol) return p.annots[i];
+      const b = bounds(p.annots[i]); const vv = v - pushOf(p, b.y);
+      if (u >= b.x - tol && u <= b.x + b.w + tol && vv >= b.y - tol && vv <= b.y + b.h + tol) return p.annots[i];
     }
     return null;
   }
@@ -426,6 +426,11 @@
   const previews = new Map(); const pvTimers = new Map();
   const teSig = (p) => JSON.stringify(p.annots.filter((a) => a.type === 'textedit').map((a) => [a.id, a.text, a.x, a.y, a.w, a.size, a.leading, a.font, a.bold, a.italic, a.align, a.color, !!a.restyled]));
   const pvReady = (p) => { const pv = previews.get(p.key); return !!(pv && pv.pdf && pv.sig === teSig(p)); };
+  // how far a point at height v on the page was pushed down by paragraphs above it that grew
+  function pushOf(p, v) {
+    const pv = previews.get(p.key); if (!pv || !pv.shifts || !pv.shifts.length || !pvReady(p)) return 0;
+    return pv.shifts.filter((sh) => sh.cutV <= v + 0.01).reduce((t, sh) => t + sh.dy, 0);
+  }
   function rerender(p) { const pe = pageEls.get(p.key); if (pe) { pe.rendered = null; if (pe.visible) { renderBase(p); drawOverlay(p); } } }
   function schedulePreview(p) {
     const sig = teSig(p); const pv = previews.get(p.key);
@@ -435,11 +440,11 @@
     pvTimers.set(p.key, setTimeout(async () => {
       try {
         const only = { ...p, annots: p.annots.filter((a) => a.type === 'textedit') };
-        const { bytes } = await buildPdf([only], { preview: true });
+        const res = await buildPdf([only], { preview: true }); const { bytes } = res;
         if (teSig(p) !== sig) return;
         const pdf = await pdfjsLib.getDocument({ ...PDFJS_OPTS, data: bytes }).promise;
         const old = previews.get(p.key); if (old && old.pdf) { try { old.pdf.destroy(); } catch { /* gone */ } }
-        previews.set(p.key, { sig, pdf });
+        previews.set(p.key, { sig, pdf, shifts: (res.shifts && res.shifts[0]) || [] });
         rerender(p);
       } catch (e) { console.warn('preview', e); window.__bubbyPreviewError = String((e && e.stack) || e); }
     }, 300));
@@ -483,12 +488,18 @@
     ctx.setTransform(...mat(p, S.zoom * r));
     for (const a of p.annots) {
       if (a.type === 'textedit' && a.id !== S.editing && pvReady(p)) continue; // the page itself already shows it
+      const d = pushOf(p, a.type === 'textedit' && a.region ? a.region.y : bounds(a).y);
+      if (d) { ctx.save(); ctx.translate(0, d); }
       if (a.id !== S.editing) drawAnnot(ctx, a);
       else if (a.type === 'textedit' && a.region) { ctx.fillStyle = '#ffffff'; ctx.fillRect(a.region.x, a.region.y, a.region.w, a.region.h); }
+      if (d) ctx.restore();
     }
     if (S.drag && S.drag.preview && S.drag.key === p.key) drawAnnot(ctx, S.drag.preview);
     const sel = S.sel && p.annots.find((a) => a.id === S.sel);
-    if (sel && sel.id !== S.editing) drawSelection(ctx, sel);
+    if (sel && sel.id !== S.editing) {
+      const d = pushOf(p, sel.type === 'textedit' && sel.region ? sel.region.y : bounds(sel).y);
+      if (d) { ctx.save(); ctx.translate(0, d); } drawSelection(ctx, sel); if (d) ctx.restore();
+    }
     if (S.marks) window.BubbyTools.drawMarksOverlay(ctx, p, S.pages.indexOf(p), S.pages.length, S.zoom * r);
   }
   function redrawAll() { for (const p of S.pages) drawOverlay(p); }
@@ -496,7 +507,7 @@
   // HTML layer: form fields, links, editable text boxes and search hits.
   async function buildLayer(p, page) {
     const pe = pageEls.get(p.key); if (!pe) return;
-    const lk = `${S.zoom}:${dispRot(p)}`;
+    const lk = `${S.zoom}:${dispRot(p)}:${pvReady(p) ? teSig(p) : ''}`;
     if (pe.layerKey === lk) return;
     pe.layerKey = lk;
     const [annots, blocks] = await Promise.all([page.getAnnotations({ intent: 'display' }), textBlocks(p)]);
@@ -516,7 +527,8 @@
       }
     }
     blocks.forEach((bl, idx) => {
-      const r = screenRect(p, bl.u, bl.top, bl.u + bl.w, bl.bot);
+      const d = pushOf(p, bl.top);
+      const r = screenRect(p, bl.u, bl.top + d, bl.u + bl.w, bl.bot + d);
       const tx = el('div', { class: 'tx', 'data-blk': idx, title: 'Click to edit this paragraph' });
       pos(tx, r); pe.layer.append(tx);
     });
@@ -602,7 +614,7 @@
       }
       lines.sort((a, b) => a.vb - b.vb || a.u - b.u);
       // List markers ("-", "•", "1.", "a)") are not part of the paragraph: they stay as they are.
-      const MARK = /^(\s*)([-–—•◦▪●○■·*]|\(?\d{1,3}[.)]|\(?[a-zA-Z][.)])(\s+)(?=\S)/;
+      const MARK = /^(\s*)([-–—•◦▪●○■·*➢►▸✓]|\(?\d{1,3}(?:\.\d{1,3})*[.)]|\(?(?:[ivxlcdm]{1,7}|[IVXLCDM]{1,7})[.)]|\(?[a-zA-Z][.)])(\s+)(?=\S)/;
       for (const Ln of lines) {
         Ln.allBold = Ln.items.every((it) => it.bold); Ln.allItalic = Ln.items.every((it) => it.italic);
         const m = MARK.exec(Ln.str);
@@ -714,9 +726,11 @@
     const ex = p.annots.find((a) => a.type === 'textedit' && a.region && Math.abs(a.region.x - (bl.u - 1)) < 0.5 && Math.abs(a.region.y - (bl.top - 1)) < 0.5);
     if (ex) { S.sel = ex.id; startEdit(p, ex, { selectAll: false }); renderToolOpts(); return ex; }
     snap();
+    const blocksAll = await textBlocks(p);
+    const colRight = Math.max(bl.u + bl.w, ...blocksAll.filter((b) => b.lines > 1 && b.u < bl.u + bl.w && b.u + b.w > bl.u - bl.size).map((b) => b.u + b.w));
     const a = {
-      id: nid(), type: 'textedit', region: { x: bl.u - 1, y: bl.top - 1, w: bl.w + 2, h: bl.bot - bl.top + 2 },
-      x: bl.u, y: bl.firstBase - bl.size * 0.8, w: r1(bl.w * 1.02 + 2), size: r1(bl.size), leading: r1(bl.leading),
+      id: nid(), type: 'textedit', colRight: r1(colRight), region: { x: bl.u - 1, y: bl.top - 1, w: bl.w + 2, h: bl.bot - bl.top + 2 },
+      x: bl.u, y: bl.firstBase - bl.size * 0.8, w: r1(bl.lines === 1 && bl.align === 'left' ? Math.max(bl.w * 1.02 + 2, colRight - bl.u) : bl.w * 1.02 + 2), size: r1(bl.size), leading: r1(bl.leading),
       font: 'orig', fallbackFont: bl.font, bold: bl.bold, italic: bl.italic, align: bl.align, color: sampleColor(p, bl) || '#000000', text: bl.text,
       origText: ocrText ? null : bl.text, origSize: r1(bl.size), origBold: bl.bold, origItalic: bl.italic,
       ...(ocrText ? { text: ocrText, font: bl.font, restyled: true } : {}),
@@ -1146,7 +1160,7 @@
         shiftAnnot(a, o, u - d.u0, v - d.v0);
       } else {
         const b = d.b0;
-        if (a.type === 'textedit') a.w = Math.max(a.size * 2, u - a.x);
+        if (a.type === 'textedit') { a.w = Math.max(a.size * 2, u - a.x); a.resized = true; }
         else if (a.type === 'text') { const f = Math.max((u - b.x) / b.w, (v - b.y) / b.h); a.size = clamp(Math.round(o.size * f * 2) / 2, 4, 200); }
         else if (a.type === 'check') a.size = clamp(Math.max(u - a.x, v - a.y), 4, 200);
         else if (a.type === 'image') { a.w = Math.max(8, u - a.x); a.h = e.shiftKey ? Math.max(8, v - a.y) : a.w * o.h / o.w; }
@@ -1270,7 +1284,7 @@
     S.editing = a.id; drawOverlay(p);
     const ta = el('textarea', { class: 'editor', spellcheck: 'false', 'aria-label': 'Text', rows: '1' });
     ta.value = a.text;
-    const [x, y] = apply(mat(p, S.zoom), a.x, a.y);
+    const [x, y] = apply(mat(p, S.zoom), a.x, a.y + pushOf(p, a.type === 'textedit' && a.region ? a.region.y : a.y));
     let fit;
     if (a.type === 'textedit') {
       ta.classList.add('para');
@@ -1295,8 +1309,22 @@
       e.stopPropagation();
       if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); commitEdit(); }
     });
-    ta.addEventListener('blur', () => commitEdit());
+    ta.addEventListener('blur', (e) => { if (e.relatedTarget && e.relatedTarget.classList && e.relatedTarget.classList.contains('ed-grip')) return; commitEdit(); });
     pe.root.append(ta); document.body.classList.add('editing-text');
+    let grip = null;
+    if (a.type === 'textedit') {
+      // drag the edge to make the paragraph wider or narrower; it rewraps as you drag
+      grip = el('div', { class: 'ed-grip', title: 'Drag to make the paragraph wider or narrower', 'aria-hidden': 'true' });
+      const place = () => { grip.style.left = (parseFloat(ta.style.left) + ta.offsetWidth - 5) + 'px'; grip.style.top = ta.style.top; grip.style.height = ta.offsetHeight + 'px'; };
+      grip.addEventListener('pointerdown', (e) => {
+        e.preventDefault(); e.stopPropagation(); grip.setPointerCapture(e.pointerId);
+        const x0 = e.clientX, w0 = a.w; const before = snapshotStr(); let moved = false;
+        const mv = (ev) => { moved = true; a.w = Math.max(a.size * 2, w0 + (ev.clientX - x0) / S.zoom); a.resized = true; ta.restyle(); place(); };
+        const up = () => { grip.removeEventListener('pointermove', mv); grip.removeEventListener('pointerup', up); if (moved) { pushUndo(before); markDirty(); } ta.focus(); };
+        grip.addEventListener('pointermove', mv); grip.addEventListener('pointerup', up);
+      });
+      pe.root.append(grip); ta.addEventListener('input', () => requestAnimationFrame(place)); requestAnimationFrame(place); ta.grip = grip;
+    }
     if (a.type === 'textedit') ta.style.minHeight = (Math.max(1, (a.geo ? a.geo.length : 1)) * a.leading * S.zoom) + 'px';
     fit(); requestAnimationFrame(fit);
     S.editor = { ta, p, a, isNew, fromEdit, before: isNew || fromEdit ? null : snapshotStr() };
@@ -1307,7 +1335,7 @@
     S.editor = null; S.editing = null;
     const { ta, p, a, isNew, before } = ed;
     const txt = ta.value.replace(/\s+$/, '');
-    ta.remove(); document.body.classList.remove('editing-text');
+    ta.remove(); if (ta.grip) ta.grip.remove(); document.body.classList.remove('editing-text');
     if (!txt && a.type === 'textedit') {
       // An emptied paragraph stays as an edit: it means "delete this paragraph".
       if (a.text !== '') { if (before) pushUndo(before); a.text = ''; }
@@ -1811,12 +1839,13 @@
       pg.setRotation(degrees(dispRot(p)));
       if (p.annots.some((a) => a.type === 'redact')) redacted.push(i);
       const allEdits = p.annots.filter((a) => a.type === 'textedit');
-      const edits = [];
+      const edits = []; const plans = [];
+      const TE = window.BubbyTextEdit;
       for (const a of allEdits) {
         if (a.geo && a.pos && !a.restyled) {
           let r = { ok: false };
           try { r = await editLines(out, pg, p, a, counter); } catch (e) { console.warn('editLines', e); }
-          if (!r.ok) edits.push(a);
+          if (!r.ok) edits.push(a); else plans.push(r);
         } else edits.push(a);
       }
       if (edits.length) {
@@ -1828,9 +1857,36 @@
           counter.covered = (counter.covered || 0) + edits.length;
           for (const a of edits) pg.drawRectangle({ x: x0 + a.region.x, y: y1 - a.region.y - a.region.h, width: a.region.w, height: a.region.h, color: rgb(1, 1, 1) });
         }
-        for (const [k, a] of edits.entries()) await drawTextEdit(out, pg, p, a, counter, res.caps && res.caps[k]);
+        const [, , , yTop] = p.view;
+        for (const [k, a] of edits.entries()) {
+          // a paragraph laid out again from scratch: room for every line it now needs
+          let n = 1;
+          try { const std = await out.embedFont(stdOf(a)); n = Math.max(1, wrapLines(a, (s2) => std.widthOfTextAtSize(s2, a.size)).length); } catch { n = Math.max(1, wrapLines(a).length); }
+          const need = a.y + a.size * 0.8 + (n - 1) * a.leading + a.size * 0.3;
+          const have = a.region ? a.region.y + a.region.h : need;
+          plans.push({ dy: Math.max(0, need - have), cut: yTop - have, topY: yTop - a.y, draw: (off) => drawTextEdit(out, pg, p, a, counter, res.caps && res.caps[k], off) });
+        }
       }
-      for (const a of p.annots) if (a.type !== 'redact' && a.type !== 'textedit') await writeAnnot(out, pg, p, a, { font, imgs, counter });
+      // Make room below paragraphs that grew (lowest first), then write every paragraph in place.
+      const grows = plans.filter((q) => q.dy > 0.01).sort((q1, q2) => q1.cut - q2.cut);
+      for (const q of grows) {
+        try { const r = await TE.shiftBelow(out, pg, q.cut, q.dy); counter.lost = (counter.lost || 0) + r.lost; counter.pushed = (counter.pushed || 0) + 1; }
+        catch (e) { console.warn('shiftBelow', e); q.dy = 0; }
+      }
+      const [, , , yv] = p.view;
+      const shifts = grows.filter((q) => q.dy > 0).map((q) => ({ cutV: yv - q.cut, dy: q.dy }));
+      if (shifts.length) { counter.shifts = counter.shifts || {}; counter.shifts[i] = shifts; }
+      for (const q of plans) {
+        const off = grows.filter((g) => g !== q && g.dy > 0 && g.cut > q.topY - 0.5).reduce((t, g) => t + g.dy, 0);
+        await q.draw(off);
+      }
+      const pushAt = (v) => shifts.filter((sh) => sh.cutV <= v).reduce((t, sh) => t + sh.dy, 0);
+      for (const a of p.annots) {
+        if (a.type === 'redact' || a.type === 'textedit') continue;
+        const d = pushAt(bounds(a).y);
+        let w = a; if (d) { w = JSON.parse(JSON.stringify(a)); shiftAnnot(w, a, 0, d); }
+        await writeAnnot(out, pg, p, w, { font, imgs, counter });
+      }
     }
     if (!opts.preview) {
       for (let i = 0; i < entries.length; i++) if (entries[i].ocr) await window.BubbyTools.writeOcr(out, out.getPage(i), entries[i]);
@@ -1840,7 +1896,7 @@
     out.setProducer('BubbyPDF'); out.setModificationDate(new Date());
     // No object streams, so BubbyPDF can find its own annotations again when the file is reopened.
     const bytes = await out.save({ useObjectStreams: false });
-    return { bytes, replaced: counter.n, redactedPages: redacted.length, covered: counter.covered || 0, fallbackChars: counter.fallback || 0, overflow: counter.overflow || 0 };
+    return { bytes, replaced: counter.n, redactedPages: redacted.length, covered: counter.covered || 0, fallbackChars: counter.fallback || 0, overflow: counter.overflow || 0, pushed: counter.pushed || 0, lost: counter.lost || 0, shifts: counter.shifts || {} };
   }
 
   // Line-preserving paragraph edit. Lines before the first change and (when the change fits back into the
@@ -1853,8 +1909,11 @@
     const X = (u) => x0 + u, Y = (v) => y1 - v;
     const G = a.geo; const n = G.length;
     const oldT = a.origText; const newT = String(a.text);
-    if (newT === oldT) return { ok: true };
-    const right = Math.max(...G.map((l) => l.u + l.w));
+    const origRight = Math.max(...G.map((l) => l.u + l.w));
+    // the paragraph's right edge: as dragged by the user, or for a one-line paragraph the text column's edge
+    const right = a.resized ? a.x + a.w : n === 1 && (a.align || 'left') === 'left' && a.colRight ? Math.max(origRight, a.colRight) : origRight;
+    const widthChanged = a.resized && Math.abs(right - origRight) > 0.5;
+    if (newT === oldT && !widthChanged) return { ok: true, dy: 0, draw: async () => {} };
     const leftBody = n > 1 ? Math.min(...G.slice(1).map((l) => l.u)) : G[0].u;
     const lead = a.leading || G[0].size * 1.2;
     // 1. Read the style of every text run in the paragraph (nothing is changed yet).
@@ -1878,6 +1937,7 @@
     // first line that changed: the first line whose text reaches past the unchanged prefix
     let top = 0; while (top < n && lineEnd(top) <= pre && (lineEnd(top) === oldT.length || (newT[lineEnd(top)] === oldT[lineEnd(top)]))) top++;
     if (top >= n) top = n - 1;
+    if (widthChanged) top = 0; // a new width rewraps the whole paragraph
     const startNew = a.offsets[top]; // same offset in new text (it is inside the prefix)
     // 3. Fonts for measuring and drawing.
     const encs = new Map();
@@ -1928,7 +1988,7 @@
     };
     // try to keep the untouched lines at the bottom: the change must fit exactly in the slots before them
     let bottom = n; let lines = null;
-    for (let kb = top + 1; kb < n; kb++) {
+    for (let kb = top + 1; kb < n && !widthChanged; kb++) {
       if (a.offsets[kb] < oldT.length - suf) continue;
       const endNew = a.offsets[kb] + shift;
       const mid = layout(startNew, endNew, kb - 1);
@@ -1944,8 +2004,12 @@
       counter.covered = (counter.covered || 0) + 1;
       for (const li of changedSlots) pg.drawRectangle({ x: X(G[li].u) - 1, y: Y(G[li].vb) - G[li].size * 0.3, width: G[li].w + 2, height: G[li].size * 1.25, color: rgb(1, 1, 1) });
     }
-    if (lines.length && lines[lines.length - 1].li >= n) counter.overflow = (counter.overflow || 0) + 1;
-    // 6. Draw the new lines.
+    // 6. How much room the paragraph needs below its last line: what follows moves down by that much.
+    const lastSlot = lines.length ? Math.max(...lines.map((L) => L.li)) : n - 1;
+    const dy = bottom === n ? Math.max(0, lastSlot - (n - 1)) * lead : 0;
+    const cut = Y(G[n - 1].vb) - G[n - 1].size * 0.3;
+    // 7. Draw the new lines (called after the room is made; `off` = how far paragraphs above pushed this one).
+    const draw = async (off = 0) => {
     let ops = ''; const fm = TE.fmt;
     const justify = a.align === 'justify';
     for (const [k, L] of lines.entries()) {
@@ -1956,7 +2020,7 @@
       let x = X(slotX(L.li));
       if (a.align === 'center') x = X(slotX(L.li) + (slotW(L.li) - natural) / 2);
       else if (a.align === 'right') x = X(right - natural);
-      const y = Y(slotY(L.li));
+      const y = Y(slotY(L.li)) - off;
       // runs of characters with the same style and the same font coverage
       let i = L.from;
       while (i < L.to) {
@@ -1981,13 +2045,14 @@
       }
     }
     if (ops) TE.appendContent(out, pg, ops);
-    return { ok: true };
+    };
+    return { ok: true, dy, cut, topY: Y(G[0].vb) + G[0].size, draw };
   }
 
   // An edited paragraph becomes real page text again (searchable, and editable next time).
   // By default it is written in the paragraph's own embedded font, size, colour and spacing.
   // Letters that font does not contain fall back to the closest standard font, letter by letter.
-  async function drawTextEdit(out, pg, p, a, counter, cap) {
+  async function drawTextEdit(out, pg, p, a, counter, cap, off = 0) {
     if (!a.text) return;
     const TE = window.BubbyTextEdit;
     const [x0, , , y1] = p.view;
@@ -2005,7 +2070,7 @@
         if (!ln) return;
         const lw = std.widthOfTextAtSize(ln, a.size);
         const dx = a.align === 'center' ? (a.w - lw) / 2 : a.align === 'right' ? a.w - lw : 0;
-        pg.drawText(ln, { x: x0 + a.x + dx, y: y1 - (a.y + a.size * 0.8 + i * a.leading), size: a.size, font: std, color: hex(a.color) });
+        pg.drawText(ln, { x: x0 + a.x + dx, y: y1 - (a.y + a.size * 0.8 + i * a.leading) - off, size: a.size, font: std, color: hex(a.color) });
       });
       return;
     }
@@ -2023,7 +2088,7 @@
       if (!ln) return;
       const lw = width(ln);
       let x = x0 + a.x + (a.align === 'center' ? (a.w - lw) / 2 : a.align === 'right' ? a.w - lw : 0);
-      const y = y1 - (a.y + a.size * 0.8 + i * a.leading);
+      const y = y1 - (a.y + a.size * 0.8 + i * a.leading) - off;
       // split the line into runs the original font can draw, and runs it cannot
       const runs = [];
       for (const ch of ln) {
@@ -2695,5 +2760,5 @@
   bench.initialFile().then((f) => { if (f) openFiles([f], { replace: true }); });
 
   // Test hooks (used by test/ui-test.html; harmless in the app).
-  window.__bubbypdf = { S, __protect: (b) => protectBytes(b), deleteSelected, pvReady, openMarkups, renderMarkups, setFieldSize, unreadable, openDrawer, saveInPlace, saveAs, applyCombined, buildPdf, openFiles, snapRects, rasterize, hasMarker, textBlocks, editBlock, setTool, layoutPages, save, textItems, undo, redo, rotatePages, deletePages, insertBlank, runSearch: async (q) => { openSearch(); searchInput.value = q; await runSearch(); return S.search.results.length; } };
+  window.__bubbypdf = { finishEdit: (ed) => { ed.blur(); if (S.editor && S.editor.ta === ed) commitEdit(); }, S, __protect: (b) => protectBytes(b), deleteSelected, pvReady, openMarkups, renderMarkups, setFieldSize, unreadable, openDrawer, saveInPlace, saveAs, applyCombined, buildPdf, openFiles, snapRects, rasterize, hasMarker, textBlocks, editBlock, setTool, layoutPages, save, textItems, undo, redo, rotatePages, deletePages, insertBlank, runSearch: async (q) => { openSearch(); searchInput.value = q; await runSearch(); return S.search.results.length; } };
 })();

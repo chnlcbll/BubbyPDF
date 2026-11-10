@@ -7,3 +7,6 @@ dist/
 # local tool caches
 .impeccable/
 *.log
+
+# local test files that are not ours to publish
+test/_*

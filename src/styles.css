@@ -542,3 +542,7 @@ body.in-combine .ttabs { display: none; }
 .modeopt input { margin-top: 3px; accent-color: var(--accent); }
 .modeopt > span { display: grid; gap: 2px; }
 .modeopt .muted { font-size: 13px; }
+
+/* Paragraph editor: drag the right edge to change its width */
+.ed-grip { position: absolute; width: 10px; cursor: ew-resize; z-index: 6; touch-action: none; }
+.ed-grip::after { content: ''; position: absolute; left: 3px; top: 50%; width: 4px; height: 28px; max-height: 80%; transform: translateY(-50%); border-radius: 2px; background: var(--accent); box-shadow: 0 0 0 2px var(--surface); }

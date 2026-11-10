@@ -54,7 +54,7 @@ export async function run() {
     await new Promise((r) => setTimeout(r, 150));
     const ed = document.querySelector('.editor');
     check('F03 opens inline editor with the old text', ed && ed.value.includes('Invoice number'), ed && ed.value);
-    if (ed) { ed.value = 'Invoice number 9999 for red widgets.'; ed.dispatchEvent(new Event('input')); ed.blur(); }
+    if (ed) { ed.value = 'Invoice number 9999 for red widgets.'; ed.dispatchEvent(new Event('input')); D.finishEdit(ed); }
     check('F03 replacement text stored', p0.annots.some((a) => a.type === 'textedit' && a.text.includes('9999')));
     check('F03 edit remembers the original area', p0.annots.some((a) => a.type === 'textedit' && a.region && a.region.w > 50));
   }
@@ -213,7 +213,7 @@ export async function run() {
   const ped = document.querySelector('.editor.para');
   check('W2 opens a paragraph editor with all the text', ped && ped.value === para.text, ped && ped.value);
   const NEW = 'We now ship twelve brass hinges with every crate, plus spare latches and a printed packing list so nothing rattles on the way north.';
-  if (ped) { ped.value = NEW; ped.dispatchEvent(new Event('input')); ped.blur(); }
+  if (ped) { ped.value = NEW; ped.dispatchEvent(new Event('input')); D.finishEdit(ped); }
   check('W2 new text stored', ea && ea.text === NEW);
   ea.bold = true; // formatting carried to the file
   out = await D.buildPdf(S.pages);
@@ -291,7 +291,7 @@ export async function run() {
   await new Promise((r) => setTimeout(r, 150));
   const ped2 = document.querySelector('.editor.para');
   check('Editor box opens at full paragraph height', ped2 && ped2.getBoundingClientRect().height >= 3 * pblocks[pbi].leading * S.zoom * 0.9, ped2 && ped2.getBoundingClientRect().height);
-  if (ped2) { ped2.value = ped2.value.replace('eleven', 'twelve'); ped2.dispatchEvent(new Event('input')); ped2.blur(); }
+  if (ped2) { ped2.value = ped2.value.replace('eleven', 'twelve'); ped2.dispatchEvent(new Event('input')); D.finishEdit(ped2); }
   await new Promise((r) => setTimeout(r, 1500));
   check('Exact preview drawn from the saved result', D.pvReady(pv0), String(window.__bubbyPreviewError || 'no error').slice(0, 400));
   D.setTool('select');
@@ -490,6 +490,49 @@ export async function run() {
   check('Home page shows tools and resume card', !document.querySelector('#start').hidden && document.querySelectorAll('.tile').length === 4 && !document.querySelector('#resume').hidden);
   document.querySelector('#btnResume').click();
   check('Continue editing returns to the document', document.querySelector('#start').hidden && !document.querySelector('#workspace').hidden);
+
+  // ---------- 1.3.3: lists, growing paragraphs, resizing, combined files ----------
+  {
+    const PL = window.PDFLib;
+    const mk = await PL.PDFDocument.create(); const pg = mk.addPage([612, 792]); const f = await mk.embedFont(PL.StandardFonts.Helvetica);
+    const T = (t, x, y) => pg.drawText(t, { x, y: 792 - y, size: 12, font: f });
+    T('Late Symptoms', 72, 100);
+    ['i.', 'ii.', 'iii.', 'iv.'].forEach((m, k) => { T(m, 120 - f.widthOfTextAtSize(m, 12), 120 + k * 15); T(['Abdominal pain', 'Nausea and vomiting', 'Loss of appetite', 'Diarrhea'][k], 140, 120 + k * 15); });
+    T('A paragraph of two lines that will grow when more words are', 72, 220); T('typed at the end of it, pushing what follows down the page.', 72, 235);
+    T('Next paragraph below.', 72, 265);
+    pg.drawLine({ start: { x: 72, y: 792 - 280 }, end: { x: 300, y: 792 - 280 }, thickness: 1 });
+    const gen = await mk.save();
+    const readRows = async (b) => {
+      const d = await window.pdfjsLib.getDocument({ data: b.slice(), isEvalSupported: false }).promise; const p1 = await d.getPage(1); const vp = p1.getViewport({ scale: 1 }); const U = window.pdfjsLib.Util;
+      const rows = []; for (const it of (await p1.getTextContent()).items) { if (!it.str.trim()) continue; const m = U.transform(vp.transform, it.transform); rows.push({ s: it.str, y: m[5] }); } d.destroy(); return rows;
+    };
+    S.dirty = false; await D.openFiles([{ name: 'list.pdf', path: null, bytes: gen }], { replace: true });
+    const bl = await D.textBlocks(S.pages[0]);
+    const items = bl.filter((b) => /Abdominal|Nausea|appetite|Diarrhea/.test(b.text));
+    check('L1 Roman-numeral list: every item is its own paragraph, numbers kept out', items.length === 4 && items.every((b) => !/\b(ii|iii|iv)\./.test(b.text)), items.map((b) => b.text).join(' | '));
+    const k = bl.findIndex((b) => /will grow/.test(b.text));
+    D.setTool('edittext'); await D.editBlock(S.pages[0], k); S.editor.ta.value += ' Here are many more words so that the paragraph needs two extra lines to fit all of them nicely.'; D.setTool('select');
+    const g = await D.buildPdf(S.pages); const rows = await readRows(g.bytes);
+    const next = rows.find((r) => /Next paragraph/.test(r.s)); const lastNew = Math.max(...rows.filter((r) => /nicely|extra lines|fit all/.test(r.s)).map((r) => r.y));
+    check('G1 Growing paragraph pushes the text below down, no overlap', g.pushed === 1 && next && next.y > 265 + 20 && lastNew < next.y - 12, JSON.stringify({ pushed: g.pushed, next: next && next.y, lastNew }));
+    check('G2 Text above and list items stay where they were', rows.find((r) => /Late Symptoms/.test(r.s)).y === 100 && Math.abs(rows.find((r) => /Diarrhea/.test(r.s)).y - 165) < 0.5);
+    check('G3 Nothing is written twice after making room', rows.filter((r) => /Next paragraph/.test(r.s)).length === 1 && rows.filter((r) => /Late Symptoms/.test(r.s)).length === 1);
+    // a wider box: the paragraph rewraps into fewer lines
+    const a = S.pages[0].annots.find((x) => x.type === 'textedit'); a.w = 470; a.resized = true;
+    const g2 = await D.buildPdf(S.pages); const rows2 = await readRows(g2.bytes);
+    const lines2 = new Set(rows2.filter((r) => r.y >= 219 && r.y < 300 && !/Next paragraph/.test(r.s)).map((r) => Math.round(r.y))).size;
+    check('R1 Dragging the paragraph wider rewraps it', lines2 < 4, lines2);
+    // combined files: edited text + a note saved together (used to fail with "t.push is not a function")
+    S.dirty = false; await D.openFiles([{ name: 'list.pdf', path: null, bytes: gen }, { name: 'fixture.pdf', path: null, bytes }], { replace: true });
+    let err = null;
+    try {
+      const b2 = await D.textBlocks(S.pages[0]); D.setTool('edittext'); await D.editBlock(S.pages[0], b2.findIndex((b) => /Late Symptoms/.test(b.text))); S.editor.ta.value += ' (updated)'; D.setTool('select');
+      S.pages[0].annots.push({ id: 'cn1', type: 'note', x: 300, y: 300, color: '#FFD84D', text: 'combined note' });
+      await D.buildPdf(S.pages);
+    } catch (e) { err = e.message; }
+    check('C1 Combined PDF with edited text and a note saves', !err, err);
+    S.dirty = false;
+  }
 
   const failed = results.filter((r) => !r.ok);
   return { passed: results.length - failed.length, total: results.length, failed };
