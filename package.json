@@ -1,0 +1,84 @@
+{
+  "name": "bubbypdf",
+  "productName": "BubbyPDF",
+  "version": "1.3.1",
+  "description": "Free, offline PDF editor. No account, no trial, no ads.",
+  "main": "main.js",
+  "author": "BubbyPDF",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "electron . --no-sandbox",
+    "dist": "electron-builder --win nsis portable"
+  },
+  "dependencies": {
+    "@cantoo/pdf-lib": "2.11.1",
+    "@tesseract.js-data/eng": "1.0.0",
+    "docx-preview": "0.4.1",
+    "exceljs": "4.4.0",
+    "fflate": "0.8.2",
+    "jszip": "3.10.2",
+    "mammoth": "1.13.0",
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "3.11.174",
+    "tesseract.js": "7.0.0",
+    "xlsx": "0.18.5"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "app.bubbypdf.desktop",
+    "productName": "BubbyPDF",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "node_modules/pdfjs-dist/build/pdf.min.js",
+      "node_modules/pdfjs-dist/build/pdf.worker.min.js",
+      "node_modules/pdfjs-dist/standard_fonts/**/*",
+      "node_modules/pdfjs-dist/cmaps/**/*",
+      "package.json",
+      "node_modules/@cantoo/pdf-lib/dist/pdf-lib.min.js",
+      "node_modules/tesseract.js/dist/tesseract.min.js",
+      "node_modules/tesseract.js/dist/worker.min.js",
+      "node_modules/tesseract.js-core/*.wasm.js",
+      "node_modules/@tesseract.js-data/eng/4.0.0/eng.traineddata.gz",
+      "node_modules/fflate/umd/index.js",
+      "node_modules/mammoth/mammoth.browser.min.js",
+      "node_modules/xlsx/dist/xlsx.full.min.js",
+      "node_modules/jszip/dist/jszip.min.js",
+      "node_modules/docx-preview/dist/docx-preview.min.js",
+      "node_modules/exceljs/dist/exceljs.min.js"
+    ],
+    "fileAssociations": [
+      {
+        "ext": "pdf",
+        "name": "PDF Document",
+        "role": "Editor"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "BubbyPDF-Setup-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "BubbyPDF-Portable-${version}.exe"
+    }
+  }
+}

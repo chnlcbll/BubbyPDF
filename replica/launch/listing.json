@@ -1,0 +1,16 @@
+{
+  "avoid": ["Adobe", "Acrobat", "Document Cloud", "Liquid Mode"],
+  "app_store": {
+    "name": "BubbyPDF: PDF Editor",
+    "subtitle": "Edit, fill and sign offline",
+    "promotional_text": "Every tool is free: fill forms, sign, add text, merge and reorder pages. No account, no trial, nothing to cancel.",
+    "description": "BubbyPDF edits PDFs on your computer, for free.\n\nOpen a PDF and fill its form fields, add text, sign it, add check marks, highlight, draw, or cover something with white. Merge files, drag pages into a new order, rotate, delete or pull pages out into a new PDF. Search shows every match in a list.\n\nWhat is different:\n- Every feature is free. There is no paid plan.\n- No account and no sign-in.\n- Your files never leave your computer.\n- No pop-ups, no ads, no AI assistant.\n- Save writes a new copy, so your original stays safe. Undo works.\n\nWindows 10 and 11.",
+    "keywords": "form,merge,split,rotate,annotate,signature,highlight,documents,pages,whiteout,checkbox",
+    "whats_new": "First release."
+  },
+  "google_play": {
+    "title": "BubbyPDF: PDF Editor",
+    "short_description": "Edit, fill, sign and merge PDFs offline. No account, no trial, no ads.",
+    "full_description": "BubbyPDF edits PDFs on your computer, for free. Fill forms, sign, add text, merge and reorder pages. No account, no trial, no ads. Your files never leave your computer."
+  }
+}

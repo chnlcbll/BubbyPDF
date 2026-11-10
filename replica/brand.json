@@ -1,0 +1,6 @@
+{
+  "name": "Docbench",
+  "avoid": ["Adobe", "Acrobat", "Document Cloud", "Liquid Mode"],
+  "domains": ["adobe.com", "acrobat.adobe.com"],
+  "colors": ["#FA0F00", "#EB1000", "#DA1F26", "#ED2224"]
+}

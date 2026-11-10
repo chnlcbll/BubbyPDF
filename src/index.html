@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>BubbyPDF</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="tool-select">
+<header class="titlebar">
+  <div class="brand"><img class="mark" src="logo.png" alt="" width="26" height="26"><span class="brand-name">BubbyPDF</span></div>
+  <button class="btn ghost icon" id="btnHome" data-icon="home" aria-label="Home" title="Home"></button>
+  <nav class="ttabs" aria-label="Tools">
+    <button class="ttab" data-tab="all">All tools</button>
+    <button class="ttab" data-tab="edit">Edit</button>
+    <button class="ttab" data-tab="convert">Convert</button>
+    <button class="ttab" data-tab="sign">Sign &amp; protect</button>
+    <button class="ttab" data-tab="organize">Organize</button>
+  </nav>
+  <div class="docname" id="docName" aria-live="polite"></div>
+  <div class="bar-group" data-needs-doc>
+    <button class="btn ghost icon" id="btnBack" data-icon="back" aria-label="Back to previous position" title="Back (Alt+Left)" disabled></button>
+    <button class="btn ghost icon" id="btnUndo" data-icon="undo" aria-label="Undo" title="Undo (Ctrl+Z)" disabled></button>
+    <button class="btn ghost icon" id="btnRedo" data-icon="redo" aria-label="Redo" title="Redo (Ctrl+Y)" disabled></button>
+  </div>
+  <div class="bar-group zoom" data-needs-doc>
+    <button class="btn ghost icon" id="btnZoomOut" data-icon="zoomout" aria-label="Zoom out" title="Zoom out (Ctrl+-)"></button>
+    <button class="btn ghost zoomval" id="btnZoomFit" title="Fit width (Ctrl+0)">100%</button>
+    <button class="btn ghost icon" id="btnZoomIn" data-icon="zoomin" aria-label="Zoom in" title="Zoom in (Ctrl+=)"></button>
+  </div>
+  <div class="bar-group pagebox" data-needs-doc>
+    <label for="pageInput" class="sr-only">Page number</label>
+    <input id="pageInput" type="text" inputmode="numeric" value="1" autocomplete="off"><span id="pageTotal">/ 1</span>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn ghost icon" id="btnSearch" data-icon="search" data-needs-doc aria-label="Search" title="Search (Ctrl+F)"></button>
+  <button class="btn ghost icon" id="btnRead" data-icon="headphones" data-needs-doc aria-label="Read aloud" title="Read aloud" aria-pressed="false"></button>
+  <button class="btn ghost icon" id="btnMarkups" data-icon="markups" data-needs-doc aria-label="Markups" title="All markups (highlights, comments, checks)"></button>
+  <button class="btn ghost icon" id="btnPrint" data-icon="print" data-needs-doc aria-label="Print" title="Print (Ctrl+P)"></button>
+  <button class="btn ghost icon" id="btnTheme" data-icon="moon" aria-label="Switch theme" title="Theme: system"></button>
+  <button class="btn secondary" id="btnAdd" data-needs-doc title="Add more PDFs to the end of this one">Combine</button>
+  <button class="btn secondary" id="btnOpen" title="Open (Ctrl+O)">Open</button>
+  <button class="btn secondary" id="btnSaveAs" data-needs-doc title="Save a copy under a new name (Ctrl+Shift+S)">Save as</button>
+  <button class="btn primary" id="btnSave" data-needs-doc title="Save (Ctrl+S)"><span class="bi" data-icon="save" aria-hidden="true"></span>Save</button>
+</header>
+
+<section class="home" id="start" aria-label="Home">
+  <nav class="home-nav" aria-label="Home sections">
+    <button class="navitem" data-view="recent" aria-current="page"><span data-icon="home"></span>Recent</button>
+    <button class="navitem" data-view="starred"><span data-icon="star"></span>Starred</button>
+    <h3>Files</h3>
+    <button class="navitem" id="navComputer"><span data-icon="computer"></span>Your computer</button>
+    <h3>Tools</h3>
+    <div class="navtools" id="navTools" role="list" aria-label="All tools"></div>
+    <p class="nav-free">Every tool is free. No account, no trial, no ads.</p>
+  </nav>
+
+  <div class="home-main">
+    <div class="home-top">
+      <section class="card tools-card" aria-labelledby="toolsTitle">
+        <div class="card-head"><h2 id="toolsTitle">Start with a tool</h2></div>
+        <div class="tool-tiles">
+          <button class="tile" data-start-tool="edit"><span class="tile-ic" data-icon="edittext"></span><strong>Edit PDF</strong><span>Change text and paragraphs, add text and images.</span></button>
+          <button class="tile" data-start-tool="combine"><span class="tile-ic" data-icon="combine"></span><strong>Combine PDFs</strong><span>Put several files into one, in the order you choose.</span></button>
+          <button class="tile" data-start-tool="fill"><span class="tile-ic" data-icon="fillsign"></span><strong>Fill &amp; Sign</strong><span>Type into forms, tick boxes and add your signature.</span></button>
+          <button class="tile" data-start-tool="organize"><span class="tile-ic" data-icon="organize"></span><strong>Organize pages</strong><span>Reorder, rotate, delete or pull out pages.</span></button>
+        </div>
+        <div class="open-tile" id="dropZone">
+          <span data-icon="file" class="open-ic"></span>
+          <button class="btn primary" id="btnOpenBig">Open file</button>
+          <span class="hint">or drop a PDF here</span>
+        </div>
+      </section>
+      <section class="card promise-card" aria-labelledby="promiseTitle">
+        <img class="logo-lg" src="logo.png" alt="BubbyPDF logo" width="56" height="56">
+        <h2 id="promiseTitle">Yours, offline, free</h2>
+        <p>BubbyPDF never uploads your files and never asks you to sign in. Every tool here is free to use.</p>
+      </section>
+    </div>
+
+    <section class="card alltools" aria-labelledby="allToolsTitle">
+      <div class="card-head"><h2 id="allToolsTitle">All tools</h2><p class="muted">Every tool is free and works offline.</p><span class="spacer"></span><button class="btn ghost sm collapse-btn" id="toggleAllTools" aria-expanded="true" aria-controls="homeTools"><span class="chev" data-icon="chevron" aria-hidden="true"></span><span class="ct-label">Hide</span></button></div>
+      <div id="homeTools" class="htools"></div>
+    </section>
+
+    <section class="card resume" id="resume" hidden>
+      <span data-icon="file" class="open-ic"></span>
+      <div class="resume-text"><strong id="resumeName"></strong><span id="resumeInfo" class="muted"></span></div>
+      <button class="btn primary" id="btnResume">Continue editing</button>
+    </section>
+
+    <div class="recent-bar">
+      <h2 id="recentTitle">Recent</h2>
+      <div class="spacer"></div>
+      <label for="recentSearch" class="sr-only">Search recent files</label>
+      <input id="recentSearch" type="search" placeholder="Search" autocomplete="off">
+      <div class="seg" role="radiogroup" aria-label="View">
+        <button class="btn ghost sm icon" id="viewList" role="radio" aria-checked="true" aria-pressed="true" aria-label="List" title="List" data-icon="list"></button>
+        <button class="btn ghost sm icon" id="viewGrid" role="radio" aria-checked="false" aria-pressed="false" aria-label="Grid" title="Grid" data-icon="grid"></button>
+      </div>
+    </div>
+    <div id="recentList" class="recent-list" role="table" aria-label="Recent files"></div>
+    <p class="empty" id="recentEmpty">Files you open will show up here.</p>
+    <div class="recent-foot"><button class="linkbtn" id="btnClearRecent" hidden>Clear recent</button></div>
+  </div>
+</section>
+
+<div class="workspace" id="workspace" hidden>
+  <nav class="toolrail" aria-label="Tools">
+    <button class="btn icon tool" data-tool="select" data-icon="select" aria-label="Select and fill forms" title="Select, move, fill forms (V)"></button>
+    <button class="btn icon tool" data-tool="text" data-icon="text" aria-label="Add text" title="Add text (T)"></button>
+    <button class="btn icon tool" data-tool="edittext" data-icon="edittext" aria-label="Edit existing text" title="Edit existing text (E)"></button>
+    <button class="btn icon tool" data-tool="check" data-icon="check" aria-label="Check mark" title="Check mark (K)"></button>
+    <button class="btn icon tool" data-tool="sign" data-icon="sign" aria-label="Signature" title="Signature (S)"></button>
+    <span class="rail-sep" aria-hidden="true"></span>
+    <button class="btn icon tool" data-tool="highlight" data-icon="highlight" aria-label="Highlight" title="Highlight (H)"></button>
+    <button class="btn icon tool" data-tool="underline" data-icon="underline" aria-label="Underline" title="Underline (U)"></button>
+    <button class="btn icon tool" data-tool="strike" data-icon="strike" aria-label="Strikethrough" title="Strikethrough (X)"></button>
+    <button class="btn icon tool" data-tool="note" data-icon="note" aria-label="Sticky note" title="Sticky note (N)"></button>
+    <button class="btn icon tool" data-tool="draw" data-icon="draw" aria-label="Draw" title="Draw (D)"></button>
+    <button class="btn icon tool" data-tool="rect" data-icon="rect" aria-label="Rectangle" title="Rectangle (R)"></button>
+    <span class="rail-sep" aria-hidden="true"></span>
+    <button class="btn icon tool" data-tool="whiteout" data-icon="whiteout" aria-label="Whiteout" title="Whiteout (W)"></button>
+    <button class="btn icon tool" data-tool="redact" data-icon="redact" aria-label="Redact" title="Redact: remove content for good (B)"></button>
+    <button class="btn icon tool" data-tool="image" data-icon="image" aria-label="Insert image" title="Insert image (I)"></button>
+  </nav>
+
+  <aside class="sidebar" aria-label="Pages">
+    <div class="side-head">
+      <h2>Pages <span id="pageCount" class="muted"></span></h2>
+    </div>
+    <div class="page-actions" role="toolbar" aria-label="Page actions">
+      <button class="btn ghost icon sm" id="pgRotL" data-icon="rotl" aria-label="Rotate left" title="Rotate left"></button>
+      <button class="btn ghost icon sm" id="pgRotR" data-icon="rotr" aria-label="Rotate right" title="Rotate right"></button>
+      <button class="btn ghost icon sm" id="pgBlank" data-icon="blank" aria-label="Insert blank page" title="Insert blank page after"></button>
+      <button class="btn ghost icon sm" id="pgExtract" data-icon="extract" aria-label="Extract selected pages" title="Save selected pages as a new PDF" disabled></button>
+      <button class="btn ghost icon sm danger" id="pgDelete" data-icon="trash" aria-label="Delete selected pages" title="Delete selected pages (Delete)" disabled></button>
+    </div>
+    <p class="side-hint" id="sideHint">Click a page to select it. Ctrl+click or Shift+click for more. Drag to reorder.</p>
+    <div class="thumbs" id="thumbs" role="listbox" aria-multiselectable="true" aria-label="Page thumbnails" tabindex="0"></div>
+  </aside>
+
+  <main class="viewer" id="viewer" tabindex="-1">
+    <div class="toolopts" id="toolopts" hidden></div>
+    <div id="pages"></div>
+  </main>
+
+  <aside class="panel" id="markupsPanel" hidden aria-label="Markups">
+    <div class="panel-head"><h2 class="panel-title">Markups</h2><div class="spacer"></div>
+      <button class="btn ghost sm danger" id="mkRemoveAll">Remove all</button>
+      <button class="btn ghost icon sm" id="mkClose" data-icon="x" aria-label="Close markups"></button></div>
+    <p class="muted search-count" id="mkCount"></p>
+    <ol class="results mklist" id="mkList"></ol>
+  </aside>
+  <aside class="panel" id="searchPanel" hidden aria-label="Search">
+    <div class="panel-head">
+      <label for="searchInput" class="sr-only">Search text</label>
+      <input id="searchInput" type="search" placeholder="Search this document" autocomplete="off">
+      <button class="btn ghost icon sm" id="btnSearchClose" data-icon="x" aria-label="Close search"></button>
+    </div>
+    <p class="muted search-count" id="searchCount" aria-live="polite"></p>
+    <ol class="results" id="results"></ol>
+  </aside>
+</div>
+
+<section class="combine" id="combine" hidden aria-label="Combine files">
+  <header class="cbar">
+    <h1>Combine files</h1>
+    <div class="cbar-tools">
+      <button class="btn ghost" id="cbAdd"><span class="bi" data-icon="blank" aria-hidden="true"></span>Add files</button>
+      <button class="btn ghost icon" id="cbRemove" data-icon="trash" aria-label="Remove selected" title="Remove selected (Delete)" disabled></button>
+      <span class="bar-sep" aria-hidden="true"></span>
+      <button class="btn ghost icon" id="cbUndo" data-icon="undo" aria-label="Undo" title="Undo (Ctrl+Z)" disabled></button>
+      <button class="btn ghost icon" id="cbRedo" data-icon="redo" aria-label="Redo" title="Redo (Ctrl+Y)" disabled></button>
+      <span class="bar-sep" aria-hidden="true"></span>
+      <button class="btn ghost icon" id="cbGrid" data-icon="grid" aria-label="Thumbnails" title="Thumbnails" aria-pressed="true"></button>
+      <button class="btn ghost icon" id="cbList" data-icon="list" aria-label="List" title="List" aria-pressed="false"></button>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn secondary" id="cbClose">Close</button>
+    <button class="btn primary" id="cbGo" disabled>Combine</button>
+  </header>
+  <div class="cbody grid" id="cbBody" tabindex="-1" role="list" aria-label="Files to combine"></div>
+  <footer class="cfoot">
+    <label class="chk"><input type="checkbox" id="cbMulti"> Select multiple</label>
+    <span class="muted" id="cbSummary" aria-live="polite"></span>
+    <div class="spacer"></div>
+    <span class="muted chint">Drag to change the order. Hover a file to see its details.</span>
+    <button class="btn ghost icon" id="cbZoomOut" data-icon="zoomout" aria-label="Smaller thumbnails" title="Smaller thumbnails"></button>
+    <button class="btn ghost icon" id="cbZoomIn" data-icon="zoomin" aria-label="Larger thumbnails" title="Larger thumbnails"></button>
+  </footer>
+</section>
+
+<aside class="tooldrawer" id="toolDrawer" hidden aria-label="Tools">
+  <div class="td-head"><h2 id="tdTitle">All tools</h2><button class="btn ghost icon sm" id="tdClose" data-icon="x" aria-label="Close tools"></button></div>
+  <label for="tdSearch" class="sr-only">Find a tool</label>
+  <input type="search" id="tdSearch" placeholder="Find a tool" autocomplete="off">
+  <div class="td-list" id="tdList"></div>
+</aside>
+
+<div id="modalRoot"></div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<div id="busy" class="busy" hidden><span></span></div>
+
+<script src="../node_modules/pdfjs-dist/build/pdf.min.js"></script>
+<script src="../node_modules/@cantoo/pdf-lib/dist/pdf-lib.min.js"></script>
+<script src="icons.js"></script>
+<script src="textedit.js"></script>
+<script src="../node_modules/fflate/umd/index.js"></script>
+<script src="../node_modules/mammoth/mammoth.browser.min.js"></script>
+<script src="../node_modules/xlsx/dist/xlsx.full.min.js"></script>
+<script src="../node_modules/jszip/dist/jszip.min.js"></script>
+<script src="../node_modules/docx-preview/dist/docx-preview.min.js"></script>
+<script src="../node_modules/exceljs/dist/exceljs.min.js"></script>
+<script src="../node_modules/tesseract.js/dist/tesseract.min.js"></script>
+<script src="tools.js"></script>
+<script src="combine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+feature,area,priority,original,clone,notes
+Open PDF (button and drag-drop),view,must,yes,yes,S01/S02
+Recent files list,view,should,yes,yes,S01
+Page thumbnails sidebar,view,must,yes,yes,S02
+Zoom in/out/fit width,view,must,yes,yes,S02
+Password-protected PDFs open,view,should,yes,partial,S02 state; opens with password; saving changes refused
+Highlight,markup,must,yes,yes,S03
+Freehand draw,markup,must,yes,yes,S03
+Rectangle shape,markup,should,yes,yes,S03
+Add text box with size and color,markup,must,yes,yes,S03/S04
+Whiteout,markup,should,yes,yes,S03
+Insert image,markup,could,yes,yes,S03
+Fill AcroForm fields,forms,must,yes,yes,S04
+Big resizable check marks,forms,must,no,yes,fix #3 forms 44 reviews
+Draw or type signature and place it,forms,must,yes,yes,S05
+Edit existing text,edit,must,yes,yes,wave 2; replaced by paragraph editing
+Reorder pages by drag,pages,must,yes,yes,S07
+Rotate selected / rotate all,pages,must,yes,yes,S07 fix #6
+Delete pages,pages,must,yes,yes,S07
+Insert blank page,pages,could,yes,yes,S07
+Extract selected pages,pages,should,yes,yes,S07
+Merge PDFs,pages,must,yes,yes,S07
+Search with full results list,search,must,no,yes,S08 fix #7 search 29 reviews
+Back after jump,search,should,no,yes,fix #7
+Undo / redo,edit,must,yes,yes,fix #5
+Save as copy by default (never silent overwrite),save,must,no,yes,fix #5 lost work 12 reviews
+Every feature free; no account; no trial,business,must,no,yes,fix #1 pricing 118 + billing 60; user decision 2026-11-10: every built feature stays free
+Fully offline; no telemetry,business,must,no,yes,fix #2 sign-in/cloud 61
+No pop-ups; no AI,business,must,no,yes,fix #8 upsell 29 + AI 44
+Dark mode,view,should,no,yes,fix #8
+Windows .exe installer,platform,must,yes,yes,NSIS installer + portable exe; unsigned; v1.1.0 NSIS + portable; unsigned
+Cloud storage and sync,cloud,skip,yes,skip,their service
+Send for e-signature,cloud,skip,yes,skip,their network
+AI assistant,ai,skip,yes,skip,users complain about it
+Convert to Word/Excel,convert,skip,yes,skip,out of slice
+OCR,convert,skip,yes,skip,out of slice
+Edit text blocks with reflow and formatting (font/size/color/align),edit,must,yes,yes,"wave 2; old text removed from the content stream, rewraps, B/I/size/color/align"
+"Move, resize, replace or delete existing images",edit,should,yes,no,S06 help: edit-images-or-objects
+Spell check,edit,could,yes,no,help: spell-check
+Underline and strikethrough text markups,comment,must,yes,yes,S03 help: add-markups; wave 1; snaps to words
+Sticky notes,comment,must,yes,yes,S03 help: add-stickynotes-bubbles; wave 1; saved as /Text annotation
+Text box comments and callouts,comment,should,yes,no,S03 help: add-textbox-comments / add-callouts
+"Lines, arrows, ovals and polygons",comment,should,yes,partial,S03 help: add-shapes-drawings; rectangle + freehand only
+"Stamps (preset, custom, dated)",comment,should,yes,no,S03 help: use-stamps
+"Comments panel: list, reply, resolve, filter",comment,should,yes,partial,S11 help: manage-reviews; Markups panel lists and deletes; no replies yet
+Comment author name,comment,could,yes,no,help: comments-author-name
+Annotations saved as editable PDF annotations (not flattened),comment,must,yes,yes,S09 v1 burns markups into page content; reopening cannot move them; wave 1; re-imported as editable on open
+Split PDF into several files,pages,should,yes,yes,S07 help: split-pdfs; extract one range only
+Crop pages,pages,should,yes,no,S07 help: crop-pages
+Replace pages from another PDF,pages,could,yes,no,S07 help: replace-pages
+Page labels / renumber pages,pages,could,yes,no,help: renumber-pages
+"Page numbers, headers and footers",pages,should,yes,partial,S17 help: use-headers-and-footers; numbers yes; headers/footers text not yet
+Watermarks and backgrounds,pages,could,yes,partial,S17 help: add-backgrounds-and-watermarks; text watermark yes; backgrounds not yet
+Bates numbering,pages,could,yes,no,S17 help: apply-bates-numbering
+Images to PDF / create blank PDF,create,should,yes,yes,S14 help: convert-to-pdf; blank page insert only
+Office and web pages to PDF,create,could,yes,yes,help: convert-to-pdf / web-pages-to-pdfs; needs a converter
+OCR: make scanned PDFs searchable,create,should,yes,yes,S19 help: recognize-text
+Reduce file size,create,should,yes,yes,S19 help: reduce-file-size
+Create form fields (prepare form),forms,should,yes,no,S16 help: create-forms
+"Form field properties, formatting, calculations",forms,could,yes,no,help: customize-form-fields
+Flatten form on save (option),forms,could,yes,partial,help: flat-forms; done automatically when merging
+Image signature (upload) and initials,forms,could,yes,partial,S05 image insert works; no initials slot
+Digital certificate signatures,sign,could,yes,no,"help: add-digital-sign; self-signed only, no trust list"
+Redact text and areas (removes content),protect,must,yes,yes,S13 help: redact-pdfs; bug B3 whiteout is not redaction; wave 1; redacted pages saved as images; verified no text left in any stream
+Search and redact,protect,should,yes,no,S13 help: redact-text
+Sanitize: remove hidden data and metadata,protect,should,yes,no,S13 help: sanitize
+Password to open (encrypt),protect,should,yes,yes,S12 help: add-passwords-to-pdfs; pdf-lib cannot encrypt
+Remove password / permissions,protect,should,yes,yes,S12 help: remove-passwords-from-pdfs
+Restrict printing / editing / copying,protect,could,yes,yes,S12 help: restrict-pdf-editing
+Print,print,must,yes,yes,"S15 help: set-up-and-print-pdfs; wave 1; system print dialog, mixed orientation"
+"Print several pages per sheet, booklets",print,could,yes,no,S15 help: multiple-pages / print-booklets; also asked for in reviews
+Export pages to PNG/JPEG,export,should,yes,yes,S09 help: pdfs-to-image-formats
+Export to plain text,export,could,yes,yes,S09 help: pdf-to-text
+Export to Word / Excel / PowerPoint,export,could,yes,yes,help: pdf-to-word etc; needs a converter
+Bookmarks (outline) panel,view,should,yes,no,S18 help: navigation
+Links: add web and page links,edit,could,yes,no,help: use-links-and-attachments
+File attachments,edit,could,yes,no,help: add-attachment
+Document properties and metadata,edit,could,yes,no,help: edit-pdf-properties
+Customize toolbar,view,could,yes,no,help: customize-toolbar
+Read aloud,view,could,yes,yes,reviews: readaloud theme 7
+"AI summaries, chat editing, podcasts",ai,skip,yes,skip,their models; users complain (44 reviews)
+PDF Spaces,cloud,skip,yes,skip,their cloud + AI
+Shared reviews in the cloud,cloud,skip,yes,skip,their service
+Adobe Express designs and templates,cloud,skip,yes,skip,their service
+Request signatures / bulk send / track agreements,cloud,skip,yes,skip,their e-sign network
+Server security policies and Purview labels,protect,skip,yes,skip,enterprise servers
+"Prepress printing (separations, trapping, Distiller)",print,skip,yes,skip,professional print production
+Barcode form fields,forms,skip,yes,skip,niche
+Geospatial PDFs and layers,view,skip,yes,skip,niche
+Home page with tools and recent files,view,should,yes,yes,"user request; recent list with thumbnails, stars, search, list/grid"
+"Split by ranges, every page, or fixed-size chunks",pages,should,yes,yes,iLovePDF split (read 2026-11-10)
+"Watermark text or image (font, transparency, position)",pages,should,yes,partial,iLovePDF watermark; text yes; image watermark not yet
+Repair a damaged PDF,create,should,yes,yes,iLovePDF repair
+Extract all images from a PDF,export,should,yes,yes,iLovePDF PDF to JPG option
+Images to PDF with orientation and margins,create,should,yes,yes,iLovePDF JPG to PDF
+Compare two PDFs side by side,view,could,yes,no,iLovePDF compare
+PDF to Markdown,export,could,yes,yes,iLovePDF
+Detect form fields automatically,forms,could,yes,no,iLovePDF PDF forms
+Batch: rotate or convert many files at once,pages,could,yes,no,iLovePDF rotate multiple
+PDF to PDF/A,export,could,yes,no,iLovePDF; needs embedded fonts + XMP + output intent
+"Remove other apps' markups (highlights, checks, comments)",comment,must,yes,yes,user request 2026-11-10
+Form field text size control,forms,should,yes,yes,user request 2026-11-10
+Save to the same file (Save) plus Save a copy,save,must,yes,yes,user request 2026-11-10
+Multiple saved signatures and import from PNG/JPG,forms,should,yes,yes,user request 2026-11-10
+Edited text keeps the original font and formatting,edit,must,yes,yes,user request 2026-11-10
+"Combine screen: arrange files, expand pages, preview, undo",pages,must,yes,yes,user request 2026-11-10
+PDF to Word / Excel / PowerPoint / HTML,export,should,yes,yes,user request; replaces older could row
+Word / Excel / PowerPoint / text / HTML to PDF,create,should,yes,yes,user request; LibreOffice if installed
+AI summary and translation,ai,skip,yes,skip,needs online AI models
+Scan to PDF from a phone,create,skip,yes,skip,needs a phone app
+Web address (URL) to PDF,create,skip,yes,skip,needs the internet; local HTML files are supported

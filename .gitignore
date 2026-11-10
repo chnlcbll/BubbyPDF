@@ -1,0 +1,9 @@
+# installed packages (npm install brings them back)
+node_modules/
+
+# built app and installers (npx electron-builder makes them)
+dist/
+
+# local tool caches
+.impeccable/
+*.log
