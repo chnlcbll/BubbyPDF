@@ -32,6 +32,3 @@ Markups are saved as real PDF annotations: other PDF apps show them as comments,
 - Redacted pages are saved as images: their text can no longer be selected or searched. Bookmarks are dropped from a redacted copy.
 - Saved text uses the standard PDF fonts (Latin characters). Other characters are replaced with "?" and you are told.
 - No OCR for scanned PDFs. Password-protected PDFs open, but changes to them can't be saved.
-
-Planning, research and evidence for every decision: `replica/`.
-Built on pdf.js (Apache-2.0), pdf-lib (MIT) and Electron (MIT).
